@@ -16,12 +16,15 @@ from src.Agent3.orchestrator import run_orchestrator, format_final_report
 # ============================================================
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+SEND_TELEGRAM = os.getenv("SEND_TELEGRAM_MESSAGES", "true").lower() == "true"
 SYMBOL = os.getenv("CRYPTO_SYMBOL", "BTCUSDT")
 LOOP_INTERVAL = int(os.getenv("LOOP_INTERVAL", "3600"))
 
 
 def send_telegram_message(message: str):
     """Send a message via Telegram Bot API."""
+    if not SEND_TELEGRAM:
+        return
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("[WARNING] Telegram not configured.")
         return
@@ -60,11 +63,13 @@ def run_once(symbol: str, round_number: int) -> str:
 
 def main():
     """Main loop: Start(symbol, interval) -> 3 Agent -> Send Telegram."""
+    use_mock = os.getenv("USE_MOCK_DATA", "false").lower() == "true"
     print(f"=== AgentGoodForCrypto ===")
     print(f"Symbol: {SYMBOL}")
     print(f"Loop Interval: {LOOP_INTERVAL}s")
-    print(f"Telegram: {'OK' if TELEGRAM_BOT_TOKEN else 'Not configured'}")
+    print(f"Telegram: {'ON' if SEND_TELEGRAM else 'OFF'}")
     print(f"OpenAI: {'OK' if os.getenv('OPENAI_API_KEY') else 'Not configured'}")
+    print(f"Mock Data: {'ON' if use_mock else 'OFF'}")
     print()
 
     round_number = 1
