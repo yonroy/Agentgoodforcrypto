@@ -10,7 +10,7 @@ ANALYTICS_MODEL = os.getenv("ANALYTICS_MODEL", "gpt-3.5-turbo")
 ANALYTICS_TEMPERATURE = float(os.getenv("ANALYTICS_MODEL_TEMPERATURE", "0.7"))
 ANALYTICS_MAX_TOKENS = int(os.getenv("ANALYTICS_MODEL_MAX_TOKENS", "1500"))
 
-PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "Systemprompt", "analysis_data_prompt.txt")
+PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "SystemPrompt", "analysis_data_prompt.txt")
 with open(PROMPT_FILE, "r", encoding="utf-8") as _f:
     SYSTEM_PROMPT = _f.read()
 
