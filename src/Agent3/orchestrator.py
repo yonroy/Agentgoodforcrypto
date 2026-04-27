@@ -16,6 +16,10 @@ ORCHESTRA_MODEL = os.getenv("ORCHESTRA_MODEL", "gpt-3.5-turbo")
 ORCHESTRA_TEMPERATURE = float(os.getenv("ORCHESTRA_MODEL_TEMPERATURE", "0.7"))
 ORCHESTRA_MAX_TOKENS = int(os.getenv("ORCHESTRA_MODEL_MAX_TOKENS", "1500"))
 
+PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "Systemprompt", "orchestrator_prompt.txt")
+with open(PROMPT_FILE, "r", encoding="utf-8") as _f:
+    SYSTEM_PROMPT = _f.read()
+
 MEMORY_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "data", "memory.json")
 MAX_MEMORY = 10
 
@@ -94,25 +98,23 @@ def ai_synthesize(tech_report: str, tech_ai: str, news_report: str, news_ai: str
         memory_lines = [f"  R{m.get('round', '?')}: {m['final_trend']} (confidence={m['confidence']})" for m in recent]
         memory_summary = "Lịch sử gần đây:\n" + "\n".join(memory_lines)
 
-    prompt = (
-        "Bạn là Orchestrator Agent, ra quyết định và phân tích tổng hợp. "
-        "Dựa trên phân tích kỹ thuật và tâm lý thị trường dưới đây, "
-        "hãy tổng hợp và đưa ra kết luận cuối cùng về xu hướng, "
-        "có bằng chứng rõ ràng.\n\n"
+    user_content = (
         f"--- Phân tích kỹ thuật ---\n{tech_ai}\n\n"
         f"--- Phân tích tâm lý ---\n{news_ai}\n\n"
         f"--- Signal tổng hợp ---\n"
         f"Trend: {synthesis['final_trend']}, Score: {synthesis['confidence_score']}, "
         f"Trend Change: {synthesis['trend_change']}\n\n"
-        f"{memory_summary}\n\n"
-        "Hãy đưa ra kết luận ngắn gọn, rõ ràng."
+        f"{memory_summary}"
     )
 
     response = client.chat.completions.create(
         model=ORCHESTRA_MODEL,
         temperature=ORCHESTRA_TEMPERATURE,
         max_tokens=ORCHESTRA_MAX_TOKENS,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
     )
 
     content = response.choices[0].message.content

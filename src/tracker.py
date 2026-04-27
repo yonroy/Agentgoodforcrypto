@@ -6,11 +6,13 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 COST_FILE = os.path.join(DATA_DIR, "cost_log.json")
 ACCURACY_FILE = os.path.join(DATA_DIR, "accuracy_log.json")
 
-# gpt-3.5-turbo pricing (USD per 1K tokens)
+# Model pricing (USD per 1K tokens)
 MODEL_PRICING = {
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
     "gpt-4": {"input": 0.03, "output": 0.06},
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+    "gpt-4.0": {"input": 0.03, "output": 0.06},
+    "gpt-5.4": {"input": 0.05, "output": 0.15},
 }
 
 

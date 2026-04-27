@@ -10,6 +10,10 @@ NEWS_MODEL = os.getenv("NEWS_MODEL", "gpt-3.5-turbo")
 NEWS_TEMPERATURE = float(os.getenv("NEWS_MODEL_TEMPERATURE", "0.7"))
 NEWS_MAX_TOKENS = int(os.getenv("NEWS_MODEL_MAX_TOKENS", "1500"))
 
+PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "Systemprompt", "read_news_prompt.txt")
+with open(PROMPT_FILE, "r", encoding="utf-8") as _f:
+    SYSTEM_PROMPT = _f.read()
+
 
 def analyze_sentiment(fng_data: list[dict]) -> dict:
     """Analyze Fear & Greed Index trend over time."""
@@ -97,19 +101,15 @@ def ai_summarize_sentiment(analysis: dict) -> tuple[str, dict]:
     Returns (ai_summary, usage_info).
     """
     report = format_news_report(analysis)
-    prompt = (
-        "Bạn là chuyên gia phân tích tâm lý thị trường crypto. "
-        "Dựa trên dữ liệu Fear & Greed Index dưới đây, "
-        "hãy đọc, phân tích và tóm tắt thông tin quan trọng. "
-        "Kết quả: Summary ngắn gọn về tâm lý thị trường.\n\n"
-        f"{report}"
-    )
 
     response = client.chat.completions.create(
         model=NEWS_MODEL,
         temperature=NEWS_TEMPERATURE,
         max_tokens=NEWS_MAX_TOKENS,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": report},
+        ],
     )
 
     content = response.choices[0].message.content

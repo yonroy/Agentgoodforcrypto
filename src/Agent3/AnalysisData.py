@@ -10,6 +10,10 @@ ANALYTICS_MODEL = os.getenv("ANALYTICS_MODEL", "gpt-3.5-turbo")
 ANALYTICS_TEMPERATURE = float(os.getenv("ANALYTICS_MODEL_TEMPERATURE", "0.7"))
 ANALYTICS_MAX_TOKENS = int(os.getenv("ANALYTICS_MODEL_MAX_TOKENS", "1500"))
 
+PROMPT_FILE = os.path.join(os.path.dirname(__file__), "..", "Systemprompt", "analysis_data_prompt.txt")
+with open(PROMPT_FILE, "r", encoding="utf-8") as _f:
+    SYSTEM_PROMPT = _f.read()
+
 # Timeframe configs from diagram:
 # Khung    | SMA      | RSI | MACD
 # 1m-5m    | 5,10,20  | 14  | 12,26,9
@@ -220,20 +224,15 @@ def ai_interpret_analysis(analysis: dict) -> tuple[str, dict]:
     Returns (ai_commentary, usage_info).
     """
     report = format_analysis_report(analysis)
-    prompt = (
-        "Bạn là chuyên gia phân tích kỹ thuật crypto. "
-        "Dựa trên dữ liệu SMA, RSI, MACD ở các khung thời gian dưới đây, "
-        "hãy mô tả xu hướng trong một khoảng thời gian, "
-        "đưa ra các tình huống có thể xảy ra, "
-        "và phân tích rõ ràng dựa vào dữ liệu.\n\n"
-        f"{report}"
-    )
 
     response = client.chat.completions.create(
         model=ANALYTICS_MODEL,
         temperature=ANALYTICS_TEMPERATURE,
         max_tokens=ANALYTICS_MAX_TOKENS,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": report},
+        ],
     )
 
     content = response.choices[0].message.content
