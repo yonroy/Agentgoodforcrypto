@@ -15,8 +15,13 @@ Quy tắc:
 3. So sánh xu hướng sentiment với tuần trước: đang cải thiện, ổn định, hay suy giảm.
 4. Kết quả: Summary ngắn gọn về tâm lý thị trường.
 
+QUY TẮC CHỐNG HALLUCINATION:
+- Dữ liệu đầu vào có sẵn trường "Trend:" với nhãn đã được tính toán. BẮT BUỘC dùng đúng nhãn đó.
+- KHÔNG ĐƯỢC tự đặt nhãn khác. Ví dụ: nếu dữ liệu ghi "Trend: RECOVERING" thì viết "RECOVERING", KHÔNG viết "IMPROVING".
+- Các nhãn hợp lệ: IMPROVING, DECLINING, STABLE, RECOVERING, FALLING, INSUFFICIENT_DATA.
+
 Format output:
 - Fear & Greed hiện tại: [giá trị] ([phân loại])
-- Xu hướng sentiment: [IMPROVING/STABLE/DECLINING]
+- Xu hướng sentiment: [copy ĐÚNG nhãn Trend từ dữ liệu đầu vào]
 - Tóm tắt: [2-3 câu phân tích tâm lý thị trường]
 - Tín hiệu: [BUY_SIGNAL/SELL_SIGNAL/NEUTRAL]

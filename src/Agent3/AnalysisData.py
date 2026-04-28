@@ -1,3 +1,4 @@
+import json
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -150,12 +151,16 @@ def determine_trend(price: float, sma: dict, rsi: float | None, macd: dict | Non
         else:
             signals.append("NEUTRAL")
 
-    # RSI signals
+    # RSI signals (with buffer zones 28-32 and 68-72)
     if rsi is not None:
-        if rsi > 70:
+        if rsi > 72:
             signals.append("OVERBOUGHT")
-        elif rsi < 30:
+        elif rsi > 68:
+            signals.append("NEAR_OVERBOUGHT")
+        elif rsi < 28:
             signals.append("OVERSOLD")
+        elif rsi < 32:
+            signals.append("NEAR_OVERSOLD")
         elif rsi > 55:
             signals.append("BULLISH")
         elif rsi < 45:
@@ -170,8 +175,8 @@ def determine_trend(price: float, sma: dict, rsi: float | None, macd: dict | Non
         else:
             signals.append("BEARISH")
 
-    bullish = signals.count("BULLISH") + signals.count("OVERSOLD")
-    bearish = signals.count("BEARISH") + signals.count("OVERBOUGHT")
+    bullish = signals.count("BULLISH") + signals.count("OVERSOLD") + signals.count("NEAR_OVERSOLD")
+    bearish = signals.count("BEARISH") + signals.count("OVERBOUGHT") + signals.count("NEAR_OVERBOUGHT")
 
     if bullish > bearish:
         return "BULLISH"
@@ -218,10 +223,13 @@ def run_analysis(symbol: str) -> dict:
     }
 
 
-def ai_interpret_analysis(analysis: dict) -> tuple[str, dict]:
+def ai_interpret_analysis(analysis: dict) -> tuple[dict, dict]:
     """Use OpenAI to interpret technical analysis data.
 
-    Returns (ai_commentary, usage_info).
+    Returns (structured_result, usage_info).
+    structured_result is a dict with keys: timeframes, scenarios,
+    overall_trend, overall_summary.  If the model does not return valid
+    JSON, a minimal fallback dict is built from the raw analysis.
     """
     report = format_analysis_report(analysis)
 
@@ -235,17 +243,52 @@ def ai_interpret_analysis(analysis: dict) -> tuple[str, dict]:
         ],
     )
 
-    content = response.choices[0].message.content
+    raw = response.choices[0].message.content
     usage = {
         "model": ANALYTICS_MODEL,
         "prompt_tokens": response.usage.prompt_tokens,
         "completion_tokens": response.usage.completion_tokens,
     }
-    return content, usage
+
+    # Parse JSON — strip markdown fences if present
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError:
+        # Fallback: build minimal structured result from raw analysis
+        result = _build_fallback_result(analysis)
+
+    return result, usage
+
+
+def _build_fallback_result(analysis: dict) -> dict:
+    """Build a minimal structured result when AI fails to return valid JSON."""
+    timeframes = {}
+    for tf, data in analysis.get("timeframes", {}).items():
+        if "error" in data:
+            continue
+        timeframes[tf] = {
+            "trend": data.get("trend", "N/A"),
+            "summary": f"Price: {data['current_price']}, RSI: {data.get('rsi', 'N/A')}, Trend: {data.get('trend', 'N/A')}",
+            "key_levels": {"support": None, "resistance": None},
+        }
+    return {
+        "timeframes": timeframes,
+        "scenarios": [],
+        "overall_trend": analysis.get("overall_trend", "NEUTRAL"),
+        "overall_summary": f"Fallback: AI không trả JSON hợp lệ. Overall trend từ indicators: {analysis.get('overall_trend', 'NEUTRAL')}",
+    }
 
 
 def format_analysis_report(analysis: dict) -> str:
-    """Format analysis results into a readable report."""
+    """Format analysis results into a readable report.
+
+    Pre-computes Price vs SMA comparisons so the LLM does not need to
+    compare raw numbers itself (reduces hallucination).
+    """
     symbol = analysis["symbol"]
     lines = [f"=== {symbol} Technical Analysis ===\n"]
 
@@ -259,13 +302,49 @@ def format_analysis_report(analysis: dict) -> str:
         if "error" in data:
             lines.append(f"[{interval}] Error: {data['error']}")
             continue
+
+        price = data["current_price"]
         lines.append(f"--- {interval} ---")
-        lines.append(f"  Price: {data['current_price']}")
-        lines.append(f"  SMA: {data['sma']}")
-        lines.append(f"  RSI: {data['rsi']}")
-        if data['macd']:
-            lines.append(f"  MACD: {data['macd']['macd']} | Signal: {data['macd']['signal']} | Hist: {data['macd']['histogram']}")
-        lines.append(f"  Trend: {data['trend']}\n")
+        lines.append(f"  Price: {price}")
+
+        # Pre-compute Price vs SMA comparison
+        sma = data.get("sma", {})
+        for sma_name, sma_val in sma.items():
+            if sma_val is not None:
+                diff = price - sma_val
+                pct = (diff / sma_val) * 100
+                position = "ABOVE" if diff > 0 else "BELOW"
+                lines.append(f"  {sma_name}: {sma_val}  ->  Price is {position} by {abs(diff):.2f} ({abs(pct):.2f}%)")
+            else:
+                lines.append(f"  {sma_name}: N/A")
+
+        # RSI with interpretation (buffer zones at 28-32 and 68-72)
+        rsi = data.get("rsi")
+        if rsi is not None:
+            if rsi > 72:
+                rsi_label = "OVERBOUGHT"
+            elif rsi > 68:
+                rsi_label = "NEAR OVERBOUGHT"
+            elif rsi < 28:
+                rsi_label = "OVERSOLD"
+            elif rsi < 32:
+                rsi_label = "NEAR OVERSOLD"
+            else:
+                rsi_label = "NEUTRAL"
+            lines.append(f"  RSI: {rsi} ({rsi_label})")
+        else:
+            lines.append(f"  RSI: N/A")
+
+        # MACD with interpretation
+        macd = data.get("macd")
+        if macd:
+            hist = macd["histogram"]
+            momentum = "POSITIVE (bullish momentum)" if hist > 0 else "NEGATIVE (bearish momentum)"
+            lines.append(f"  MACD: {macd['macd']} | Signal: {macd['signal']} | Hist: {hist} -> {momentum}")
+        else:
+            lines.append(f"  MACD: N/A")
+
+        lines.append(f"  Computed Trend: {data['trend']}\n")
 
     lines.append(f">>> Overall Trend: {analysis['overall_trend']} <<<")
     return "\n".join(lines)

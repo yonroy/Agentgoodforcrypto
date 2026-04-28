@@ -36,13 +36,29 @@ def analyze_sentiment(fng_data: list[dict]) -> dict:
     else:
         sentiment = "Extreme Greed"
 
-    # Trend direction
+    # Trend direction — analyse the sequential movement, not just
+    # block averages, so V-shape recoveries and sell-offs are detected.
     if len(values) >= 3:
-        recent_avg = sum(values[:3]) / 3
-        older_avg = sum(values[3:min(6, len(values))]) / max(1, min(3, len(values) - 3))
-        if recent_avg > older_avg + 5:
+        # values is ordered newest-first: values[0] = today
+        # Compute short-term momentum (last 3 days, newest vs oldest)
+        short_delta = values[0] - values[2]  # positive = improving
+
+        # Check for V-shape: did the series dip then recover (or spike then fall)?
+        min_val = min(values[:5]) if len(values) >= 5 else min(values)
+        max_val = max(values[:5]) if len(values) >= 5 else max(values)
+
+        # Current value is near the recent high and we climbed from a dip
+        recovering = (values[0] >= max_val - 3) and (values[0] - min_val >= 10)
+        # Current value is near the recent low and we fell from a peak
+        falling = (values[0] <= min_val + 3) and (max_val - values[0] >= 10)
+
+        if recovering and short_delta > 0:
+            trend = "RECOVERING"
+        elif falling and short_delta < 0:
+            trend = "FALLING"
+        elif short_delta > 5:
             trend = "IMPROVING"
-        elif recent_avg < older_avg - 5:
+        elif short_delta < -5:
             trend = "DECLINING"
         else:
             trend = "STABLE"
@@ -135,8 +151,8 @@ def format_news_report(analysis: dict) -> str:
 
     history = fng.get("history", [])
     if history:
-        lines.append("\nRecent History:")
-        for entry in history[:5]:
+        lines.append("\nRecent History (7d):")
+        for entry in history[:7]:
             lines.append(f"  {entry['classification']}: {entry['value']}")
 
     return "\n".join(lines)
