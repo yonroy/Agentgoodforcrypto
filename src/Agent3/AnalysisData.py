@@ -37,23 +37,28 @@ def calculate_sma(closes: list[float], period: int) -> float | None:
 
 
 def calculate_rsi(closes: list[float], period: int = 14) -> float | None:
-    """Calculate Relative Strength Index."""
+    """Calculate RSI using Wilder's smoothing (standard formula)."""
     if len(closes) < period + 1:
         return None
 
     gains = []
     losses = []
-    for i in range(-period, 0):
+    for i in range(1, len(closes)):
         change = closes[i] - closes[i - 1]
-        if change > 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            gains.append(0)
-            losses.append(abs(change))
+        gains.append(max(change, 0.0))
+        losses.append(max(-change, 0.0))
 
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
+    if len(gains) < period:
+        return None
+
+    # Seed with simple average over first period
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    # Wilder's exponential smoothing for remaining bars
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
 
     if avg_loss == 0:
         return 100.0
@@ -96,7 +101,8 @@ def calculate_macd(closes: list[float], fast: int = 12, slow: int = 26, signal: 
     if len(macd_values) < signal:
         return {"macd": macd_line, "signal": 0, "histogram": macd_line}
 
-    signal_line = sum(macd_values[-signal:]) / signal
+    # Use EMA for signal line (standard MACD formula)
+    signal_line = calculate_ema(macd_values, signal) or (sum(macd_values[-signal:]) / signal)
     histogram = macd_line - signal_line
 
     return {"macd": round(macd_line, 6), "signal": round(signal_line, 6), "histogram": round(histogram, 6)}

@@ -61,22 +61,22 @@ def synthesize_results(tech_analysis: dict, news_analysis: dict, memory: list[di
 
     reversal_signal = "STABLE"
     if len(memory) >= 2:
-        prev_trends = [m.get("final_trend") for m in memory[-3:]]
-        if all(t == "BULLISH" for t in prev_trends) and score < 0:
+        prev_trends = [m.get("final_trend", "").upper() for m in memory[-3:]]
+        if all("BULLISH" in t for t in prev_trends) and score < 0:
             reversal_signal = "REVERSAL_DOWN"
-        elif all(t == "BEARISH" for t in prev_trends) and score > 0:
+        elif all("BEARISH" in t for t in prev_trends) and score > 0:
             reversal_signal = "REVERSAL_UP"
 
     if score >= 2:
-        final_trend = "BULLISH"
+        final_trend = "BULLISH - Giá có xu hướng đi lên mạnh."
     elif score <= -2:
-        final_trend = "BEARISH"
+        final_trend = "BEARISH - Giá có xu hướng đi xuống mạnh."
     elif score > 0:
-        final_trend = "SLIGHTLY_BULLISH"
+        final_trend = "SLIGHTLY_BULLISH - Giá có xu hướng đi lên nhẹ."
     elif score < 0:
-        final_trend = "SLIGHTLY_BEARISH"
+        final_trend = "SLIGHTLY_BEARISH - Giá có xu hướng đi xuống nhẹ."
     else:
-        final_trend = "NEUTRAL"
+        final_trend = "NEUTRAL - Giá không có xu hướng rõ ràng."
 
     # Hard-coded oversold reversal rule:
     # When RSI is extremely low (< 20) on medium timeframes and all signals

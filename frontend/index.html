@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Trading Bot Dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --border: #243041;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      padding: 24px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #cbd5e1;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .row label {
+      width: 120px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    input, select, button {
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      width: 100%;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: var(--blue);
+      border-color: #2563eb;
+    }
+    .btn-stop {
+      background: #374151;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .metric {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 68px;
+    }
+    .metric .k {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .metric .v {
+      font-size: 16px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+    .green {
+      color: var(--green);
+    }
+    .red {
+      color: var(--red);
+    }
+    #logs {
+      margin: 0;
+      padding-left: 18px;
+      max-height: 280px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    #logs li {
+      margin-bottom: 6px;
+      color: #d1d5db;
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Crypto Trading Bot (Backend Connected)</h1>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Bot Config</h2>
+      <div class="row">
+        <label for="symbol">Symbol</label>
+        <select id="symbol">
+          <option value="BTCUSDT">BTCUSDT</option>
+          <option value="ETHUSDT">ETHUSDT</option>
+          <option value="SOLUSDT">SOLUSDT</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="capital">Capital (USDT)</label>
+        <input id="capital" type="number" value="1000" min="10" />
+      </div>
+      <div class="row">
+        <label for="leverage">Leverage</label>
+        <input id="leverage" type="number" value="3" min="1" max="20" />
+      </div>
+      <div class="row">
+        <label for="intervalSec">Loop interval (s)</label>
+        <input id="intervalSec" type="number" value="10" min="2" max="300" />
+      </div>
+      <div class="row">
+        <button id="startBtn" class="btn-primary">Start Bot</button>
+        <button id="stopBtn" class="btn-stop">Stop</button>
+      </div>
+      <div class="hint">This UI reads live state from backend API at <code>http://127.0.0.1:8000</code>.</div>
+    </section>
+
+    <section class="card">
+      <h2>Portfolio</h2>
+      <div class="metrics">
+        <div class="metric"><div class="k">Status</div><div id="status" class="v">Stopped</div></div>
+        <div class="metric"><div class="k">Price</div><div id="price" class="v">-</div></div>
+        <div class="metric"><div class="k">Balance</div><div id="balance" class="v">-</div></div>
+        <div class="metric"><div class="k">Position</div><div id="position" class="v">NONE</div></div>
+        <div class="metric"><div class="k">Unrealized PnL</div><div id="upnl" class="v">-</div></div>
+        <div class="metric"><div class="k">Total PnL</div><div id="totalPnl" class="v">-</div></div>
+        <div class="metric"><div class="k">Win / Loss</div><div id="wl" class="v">0 / 0</div></div>
+        <div class="metric"><div class="k">Win Rate</div><div id="winRate" class="v">0%</div></div>
+        <div class="metric"><div class="k">Trend</div><div id="trend" class="v">-</div></div>
+        <div class="metric"><div class="k">Scans / Rounds</div><div id="counts" class="v">0 / 0</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Logs</h2>
+      <ol id="logs"></ol>
+    </section>
+  </div>
+
+  <script>
+    const els = {
+      symbol: document.getElementById("symbol"),
+      capital: document.getElementById("capital"),
+      leverage: document.getElementById("leverage"),
+      intervalSec: document.getElementById("intervalSec"),
+      startBtn: document.getElementById("startBtn"),
+      stopBtn: document.getElementById("stopBtn"),
+      status: document.getElementById("status"),
+      price: document.getElementById("price"),
+      balance: document.getElementById("balance"),
+      position: document.getElementById("position"),
+      upnl: document.getElementById("upnl"),
+      totalPnl: document.getElementById("totalPnl"),
+      wl: document.getElementById("wl"),
+      winRate: document.getElementById("winRate"),
+      trend: document.getElementById("trend"),
+      counts: document.getElementById("counts"),
+      logs: document.getElementById("logs"),
+    };
+
+    const API_BASE = "http://127.0.0.1:8000/api";
+
+    function fmtUsd(n) {
+      return "$" + Number(n).toFixed(2);
+    }
+
+    function renderLogs(logs) {
+      els.logs.innerHTML = "";
+      for (const line of logs || []) {
+        const li = document.createElement("li");
+        li.textContent = line;
+        els.logs.appendChild(li);
+      }
+    }
+
+    function renderStatus(data) {
+      const p = data.portfolio || {};
+      const running = Boolean(data.running);
+
+      els.status.textContent = running ? "Running" : "Stopped";
+      els.status.className = "v " + (running ? "green" : "");
+
+      els.price.textContent = data.last_price ? fmtUsd(data.last_price) : "-";
+      if (p.balance !== undefined) {
+        els.balance.textContent = fmtUsd(p.balance);
+        const capital = Number((data.config || {}).capital || p.balance);
+        els.balance.className = "v " + (p.balance > capital ? "green" : p.balance < capital ? "red" : "");
+      } else {
+        els.balance.textContent = "-";
+      }
+
+      if (p.position) {
+        const entry = p.entry_price ? Number(p.entry_price).toFixed(2) : "-";
+        els.position.textContent = p.position + " @ " + entry;
+      } else {
+        els.position.textContent = "NONE";
+      }
+
+      let upnlVal = 0;
+      const holdAction = (data.last_actions || []).find((a) => String(a.action || "").startsWith("HOLD_"));
+      if (holdAction && holdAction.unrealized_pnl !== undefined) {
+        upnlVal = Number(holdAction.unrealized_pnl);
+      } else if (p.unrealized_pnl !== undefined) {
+        upnlVal = Number(p.unrealized_pnl);
+      }
+      els.upnl.textContent = fmtUsd(upnlVal);
+      els.upnl.className = "v " + (upnlVal > 0 ? "green" : upnlVal < 0 ? "red" : "");
+
+      const totalPnl = Number(p.total_pnl || 0);
+      els.totalPnl.textContent = fmtUsd(totalPnl);
+      els.totalPnl.className = "v " + (totalPnl > 0 ? "green" : totalPnl < 0 ? "red" : "");
+
+      const wins = Number(p.winning_trades || 0);
+      const losses = Number(p.losing_trades || 0);
+      const winRate = Number(p.win_rate || 0);
+      els.wl.textContent = wins + " / " + losses;
+      els.winRate.textContent = winRate.toFixed(1) + "%";
+      els.trend.textContent = data.last_trend || "-";
+      els.counts.textContent = String(data.scan_count || 0) + " / " + String(data.round_count || 0);
+      renderLogs(data.logs || []);
+    }
+
+    async function callApi(path, method, body) {
+      const res = await fetch(API_BASE + path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        throw new Error("API error: " + res.status);
+      }
+      return await res.json();
+    }
+
+    async function refreshStatus() {
+      try {
+        const data = await callApi("/status", "GET");
+        renderStatus(data);
+      } catch (err) {
+        els.status.textContent = "API Offline";
+        els.status.className = "v red";
+      }
+    }
+
+    async function startBot() {
+      const payload = {
+        symbol: els.symbol.value,
+        capital: Number(els.capital.value),
+        leverage: Number(els.leverage.value),
+        interval_sec: Number(els.intervalSec.value),
+      };
+      await callApi("/start", "POST", payload);
+      await refreshStatus();
+    }
+
+    async function stopBot() {
+      await callApi("/stop", "POST");
+      await refreshStatus();
+    }
+
+    els.startBtn.addEventListener("click", startBot);
+    els.stopBtn.addEventListener("click", stopBot);
+    refreshStatus();
+    setInterval(refreshStatus, 2000);
+  </script>
+</body>
+</html>

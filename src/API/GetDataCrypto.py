@@ -69,3 +69,10 @@ def get_ticker_24h(symbol: str) -> dict:
         "volume": float(data["volume"]),
         "last_price": float(data["lastPrice"]),
     }
+
+if __name__ == "__main__":
+    # Quick test
+    symbol = "BTCUSDT"
+    print(f"Current price of {symbol}: {get_current_price(symbol)}")
+    print(f"24h stats for {symbol}: {get_ticker_24h(symbol)}")
+    print(f"Last 5 klines for {symbol} (1m interval): {get_klines(symbol, '1m', limit=5)}")

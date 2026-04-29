@@ -173,10 +173,10 @@ class AccuracyTracker:
         else:
             actual_direction = "DOWN"
 
-        predicted = prev["predicted_trend"]
-        if predicted in ("BULLISH", "SLIGHTLY_BULLISH"):
+        predicted = prev["predicted_trend"].upper()
+        if "BULLISH" in predicted:
             is_correct = actual_direction in ("UP", "FLAT")
-        elif predicted in ("BEARISH", "SLIGHTLY_BEARISH"):
+        elif "BEARISH" in predicted:
             is_correct = actual_direction in ("DOWN", "FLAT")
         else:  # NEUTRAL - only correct if price stayed within the vol band
             neutral_band = prev.get("neutral_band_pct", 0.25)
